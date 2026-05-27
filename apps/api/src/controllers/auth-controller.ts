@@ -24,4 +24,25 @@ export function registerAuthController(ctx: ControllerContext): void {
       handleControllerError(error, res);
     }
   });
+
+  app.post(`${basePath}/auth/register`, async (req, res) => {
+    const schema = z.object({
+      staffId: z.string().min(1),
+      name: z.string().min(1),
+      role: z.enum(['admin', 'staff']),
+      password: z.string().min(8)
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.flatten() });
+      return;
+    }
+
+    try {
+      const result = await services.auth.register(parsed.data);
+      res.status(201).json(result);
+    } catch (error) {
+      handleControllerError(error, res);
+    }
+  });
 }

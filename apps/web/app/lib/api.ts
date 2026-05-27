@@ -54,6 +54,24 @@ export async function apiLogin(staffId: string, password: string): Promise<{ tok
   return (await response.json()) as { token: string; role: UserRole };
 }
 
+export async function apiRegister(input: {
+  staffId: string;
+  name: string;
+  role: UserRole;
+  password: string;
+}): Promise<{ staffId: string; role: UserRole }> {
+  const response = await fetch(`${API_BASE}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input)
+  });
+  if (!response.ok) {
+    const payload = await response.text();
+    throw new Error(`register_failed:${response.status}:${payload}`);
+  }
+  return (await response.json()) as { staffId: string; role: UserRole };
+}
+
 export function apiGet<T>(path: string, options: ApiOptions = {}): Promise<T> {
   return request<T>(path, 'GET', undefined, options);
 }

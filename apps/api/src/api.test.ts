@@ -222,3 +222,42 @@ test('role guard blocks staff from admin endpoints', async () => {
     await db.close?.();
   }
 });
+
+test('staff can self-register and login; admin self-registration is blocked', async () => {
+  const { app, db } = await setup();
+  try {
+    const registerStaff = await request(app)
+      .post(`${basePath}/auth/register`)
+      .send({
+        staffId: 'staff03',
+        name: 'New Staff',
+        role: 'staff',
+        password: 'StaffPass123!'
+      })
+      .expect(201);
+
+    assert.equal(registerStaff.body.staffId, 'staff03');
+    assert.equal(registerStaff.body.role, 'staff');
+
+    const loginStaff = await request(app)
+      .post(`${basePath}/auth/login`)
+      .send({ staffId: 'staff03', password: 'StaffPass123!' })
+      .expect(200);
+    assert.equal(loginStaff.body.role, 'staff');
+    assert.ok(loginStaff.body.token);
+
+    const registerAdmin = await request(app)
+      .post(`${basePath}/auth/register`)
+      .send({
+        staffId: 'admin02',
+        name: 'Admin User 2',
+        role: 'admin',
+        password: 'AdminPass123!'
+      })
+      .expect(400);
+
+    assert.equal(registerAdmin.body.error, 'admin_register_not_allowed');
+  } finally {
+    await db.close?.();
+  }
+});

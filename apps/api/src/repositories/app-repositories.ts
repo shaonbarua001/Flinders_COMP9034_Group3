@@ -13,6 +13,12 @@ export interface Repositories {
   };
   auth: {
     findStaffLogin(staffId: string): Promise<Array<{ staff_id: string; role: 'admin' | 'staff'; password_hash: string; active: boolean }>>;
+    createStaffLogin(input: {
+      staffId: string;
+      name: string;
+      role: 'staff';
+      passwordHash: string;
+    }): Promise<{ staff_id: string; role: 'admin' | 'staff' }>;
   };
   staff: {
     create(input: {
@@ -128,6 +134,15 @@ export function createRepositories(db: Queryable): Repositories {
           [staffId]
         );
         return result.rows;
+      },
+      async createStaffLogin(input) {
+        const result = await db.query<{ staff_id: string; role: 'admin' | 'staff' }>(
+          `INSERT INTO staff (staff_id, name, contract_type, standard_hours, role, standard_rate, overtime_rate, password_hash)
+           VALUES ($1, $2, 'casual', 38, $3, 0, 0, $4)
+           RETURNING staff_id, role`,
+          [input.staffId, input.name, input.role, input.passwordHash]
+        );
+        return result.rows[0];
       }
     },
     staff: {
