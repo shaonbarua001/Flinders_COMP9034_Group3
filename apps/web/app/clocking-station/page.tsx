@@ -30,6 +30,7 @@ export default function ClockingStationPage() {
   const [stationId, setStationId] = useState(1);
   const [methodType, setMethodType] = useState<'card' | 'face' | 'fingerprint' | 'retinal'>('fingerprint');
   const [logs, setLogs] = useState<EventLog[]>([]);
+  const [clockedIn, setClockedIn] = useState(false);
 
   useEffect(() => {
     if (!session) return;
@@ -49,23 +50,67 @@ export default function ClockingStationPage() {
       .catch(() => undefined);
   }, [session]);
 
+  useEffect(() => {
+    if (!session || !staffId) {
+      setClockedIn(false);
+      return;
+    }
+
+    apiGet<{ data: { staffId: string; clockedIn: boolean; lastEventType: string | null } }>(
+      `/time-events/status?staffId=${encodeURIComponent(staffId)}`
+    )
+      .then((result) => setClockedIn(result.data.clockedIn))
+      .catch(() => setClockedIn(false));
+  }, [session, staffId]);
+
   async function pushEvent(eventType: 'clock_in' | 'clock_out' | 'break_start' | 'break_end', breakType?: 'tea' | 'lunch' | 'safety') {
     if (!staffId) return;
-    await apiPost(
-      '/time-events',
-      {
+    try {
+      const timestamp = new Date().toISOString();
+      const isAdminManualClockAction =
+        session?.role === 'admin' && (eventType === 'clock_in' || eventType === 'clock_out');
+      let path = '/time-events';
+      let body: Record<string, unknown> = {
         staffId,
         stationId,
         eventType,
         methodType,
-        breakType,
-        timestamp: new Date().toISOString()
+        timestamp,
+        breakType
+      };
+
+      if (isAdminManualClockAction) {
+        const reason = window.prompt(`Reason for manual ${eventType === 'clock_in' ? 'clock in' : 'clock out'}:`);
+        if (!reason || !reason.trim()) {
+          return;
+        }
+        path = '/time-events/manual';
+        body = {
+          staffId,
+          stationId,
+          eventType,
+          methodType,
+          timestamp,
+          reason: reason.trim()
+        };
       }
-    );
-    setLogs((prev) => [
-      { at: new Date().toLocaleTimeString(), staffId, stationId, action: breakType ? `${eventType}:${breakType}` : eventType },
-      ...prev
-    ].slice(0, 10));
+
+      await apiPost(path, body);
+      setLogs((prev) => [
+        { at: new Date().toLocaleTimeString(), staffId, stationId, action: breakType ? `${eventType}:${breakType}` : eventType },
+        ...prev
+      ].slice(0, 10));
+
+      const status = await apiGet<{ data: { clockedIn: boolean } }>(`/time-events/status?staffId=${encodeURIComponent(staffId)}`);
+      setClockedIn(status.data.clockedIn);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('staff_not_clocked_in')) {
+        window.alert('Please clock in first');
+        return;
+      }
+      window.alert('Action failed. Please try again.');
+    }
   }
 
   return (
@@ -104,9 +149,9 @@ export default function ClockingStationPage() {
           <button className="primary-button" onClick={() => pushEvent('clock_in')}>Clock In</button>
           <button className="primary-button" onClick={() => pushEvent('clock_out')}>Clock Out</button>
           <div className="grid-3">
-            <button className="secondary-button" style={{ minHeight: 48 }} onClick={() => pushEvent('break_start', 'tea')}>Tea Break</button>
-            <button className="secondary-button" style={{ minHeight: 48 }} onClick={() => pushEvent('break_start', 'lunch')}>Lunch</button>
-            <button className="secondary-button" style={{ minHeight: 48 }} onClick={() => pushEvent('break_start', 'safety')}>Safety Check</button>
+            <button className="secondary-button" style={{ minHeight: 48 }} disabled={!staffId || !clockedIn} onClick={() => pushEvent('break_start', 'tea')}>Tea Break</button>
+            <button className="secondary-button" style={{ minHeight: 48 }} disabled={!staffId || !clockedIn} onClick={() => pushEvent('break_start', 'lunch')}>Lunch</button>
+            <button className="secondary-button" style={{ minHeight: 48 }} disabled={!staffId || !clockedIn} onClick={() => pushEvent('break_start', 'safety')}>Safety Check</button>
           </div>
         </div>
         <div className="panel">

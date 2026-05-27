@@ -35,6 +35,7 @@ export interface Repositories {
     update(staffId: string, input: Record<string, unknown>): Promise<Record<string, unknown> | null>;
     deactivate(staffId: string): Promise<Record<string, unknown> | null>;
     findPk(staffId: string): Promise<number | null>;
+    findBasicByPk(staffPk: number): Promise<{ staff_id: string; name: string } | null>;
     listActiveBasic(): Promise<Array<{ id: number; staff_id: string; name: string; standard_hours?: string; standard_rate?: string; overtime_rate?: string }>>;
     listActivePayRates(): Promise<Array<{ id: number; staff_id: string; standard_hours: string; standard_rate: string; overtime_rate: string }>>;
   };
@@ -43,6 +44,7 @@ export interface Repositories {
     list(): Promise<Record<string, unknown>[]>;
     update(id: string, input: Record<string, unknown>): Promise<Record<string, unknown> | null>;
     deactivate(id: string): Promise<Record<string, unknown> | null>;
+    findById(id: number): Promise<{ id: number; name: string; location: string } | null>;
   };
   identity: {
     upsert(input: {
@@ -76,6 +78,8 @@ export interface Repositories {
       reason: string | null;
       createdBy: string;
     }): Promise<Record<string, unknown>>;
+    findLatestByStaffPk(staffPk: number): Promise<{ event_type: string } | null>;
+    findLatestClockByStaffPk(staffPk: number): Promise<{ event_type: 'clock_in' | 'clock_out' } | null>;
     listByTimestampRange(start: string, endExclusive: string): Promise<Array<{ staff_id: number; event_type: string; event_timestamp: string }>>;
   };
   exception: {
@@ -209,6 +213,13 @@ export function createRepositories(db: Queryable): Repositories {
         const result = await db.query<{ id: number }>('SELECT id FROM staff WHERE staff_id = $1', [staffId]);
         return result.rows[0]?.id ?? null;
       },
+      async findBasicByPk(staffPk) {
+        const result = await db.query<{ staff_id: string; name: string }>(
+          'SELECT staff_id, name FROM staff WHERE id = $1',
+          [staffPk]
+        );
+        return result.rows[0] ?? null;
+      },
       async listActiveBasic() {
         const result = await db.query<{ id: number; staff_id: string; name: string }>(
           'SELECT id, staff_id, name FROM staff WHERE active = TRUE ORDER BY staff_id ASC'
@@ -263,6 +274,13 @@ export function createRepositories(db: Queryable): Repositories {
       async deactivate(id) {
         const result = await db.query('UPDATE stations SET active = FALSE, updated_at = NOW() WHERE id = $1 RETURNING id, active', [id]);
         return (result.rows[0] as Record<string, unknown> | undefined) ?? null;
+      },
+      async findById(id) {
+        const result = await db.query<{ id: number; name: string; location: string }>(
+          'SELECT id, name, location FROM stations WHERE id = $1',
+          [id]
+        );
+        return result.rows[0] ?? null;
       }
     },
     identity: {
@@ -350,6 +368,28 @@ export function createRepositories(db: Queryable): Repositories {
           ]
         );
         return result.rows[0] as Record<string, unknown>;
+      },
+      async findLatestByStaffPk(staffPk) {
+        const result = await db.query<{ event_type: string }>(
+          `SELECT event_type
+           FROM time_events
+           WHERE staff_id = $1
+           ORDER BY event_timestamp DESC, id DESC
+           LIMIT 1`,
+          [staffPk]
+        );
+        return result.rows[0] ?? null;
+      },
+      async findLatestClockByStaffPk(staffPk) {
+        const result = await db.query<{ event_type: 'clock_in' | 'clock_out' }>(
+          `SELECT event_type
+           FROM time_events
+           WHERE staff_id = $1 AND event_type IN ('clock_in', 'clock_out')
+           ORDER BY event_timestamp DESC, id DESC
+           LIMIT 1`,
+          [staffPk]
+        );
+        return result.rows[0] ?? null;
       },
       async listByTimestampRange(start, endExclusive) {
         const result = await db.query<{ staff_id: number; event_type: string; event_timestamp: string }>(

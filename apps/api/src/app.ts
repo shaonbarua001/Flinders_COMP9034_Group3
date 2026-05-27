@@ -26,6 +26,7 @@ export function createOpenApiSpec(basePath: string) {
       [`${basePath}/stations`]: { get: { summary: 'List stations' }, post: { summary: 'Create station' } },
       [`${basePath}/rosters`]: { get: { summary: 'List rosters' }, post: { summary: 'Upsert rosters' } },
       [`${basePath}/time-events`]: { post: { summary: 'Submit clock event' } },
+      [`${basePath}/time-events/status`]: { get: { summary: 'Get clocking status for a staff member' } },
       [`${basePath}/reports/attendance`]: { get: { summary: 'Attendance summary report' } },
       [`${basePath}/payroll/runs/generate`]: { post: { summary: 'Generate payroll run' } },
       [`${basePath}/exceptions/detect`]: { post: { summary: 'Detect compliance exceptions' } },

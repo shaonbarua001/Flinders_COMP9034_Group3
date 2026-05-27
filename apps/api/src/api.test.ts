@@ -223,6 +223,130 @@ test('role guard blocks staff from admin endpoints', async () => {
   }
 });
 
+test('clocking status, break guard, and manual clock audit fields are enforced', async () => {
+  const { app, db } = await setup();
+  try {
+    const adminToken = await loginAs(app, 'admin01', 'AdminPass123!');
+
+    await request(app)
+      .post(`${basePath}/staff`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        staffId: 'staff11',
+        name: 'Ava Orchard',
+        contractType: 'full_time',
+        standardHours: 38,
+        role: 'staff',
+        standardRate: 30,
+        overtimeRate: 45,
+        password: 'WorkerPass123!'
+      })
+      .expect(201);
+
+    const station = await request(app)
+      .post(`${basePath}/stations`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Station A', location: 'North Field', methodType: 'fingerprint' })
+      .expect(201);
+    const stationId = station.body.data.id as number;
+
+    const initialStatus = await request(app)
+      .get(`${basePath}/time-events/status`)
+      .query({ staffId: 'staff11' })
+      .expect(200);
+    assert.equal(initialStatus.body.data.staffId, 'staff11');
+    assert.equal(initialStatus.body.data.clockedIn, false);
+    assert.equal(initialStatus.body.data.lastEventType, null);
+
+    const breakBeforeClockIn = await request(app)
+      .post(`${basePath}/time-events`)
+      .send({
+        staffId: 'staff11',
+        stationId,
+        eventType: 'break_start',
+        breakType: 'tea',
+        methodType: 'fingerprint',
+        timestamp: '2026-04-20T08:30:00.000Z'
+      })
+      .expect(400);
+    assert.equal(breakBeforeClockIn.body.error, 'staff_not_clocked_in');
+
+    const staffPk = (await db.query<{ id: number }>('SELECT id FROM staff WHERE staff_id = $1', ['staff11'])).rows[0].id;
+    const eventCount = await db.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM time_events WHERE staff_id = $1', [staffPk]);
+    assert.equal(Number(eventCount.rows[0].count), 0);
+
+    await request(app)
+      .post(`${basePath}/time-events`)
+      .send({
+        staffId: 'staff11',
+        stationId,
+        eventType: 'clock_in',
+        methodType: 'fingerprint',
+        timestamp: '2026-04-20T08:00:00.000Z'
+      })
+      .expect(201);
+
+    const afterClockIn = await request(app)
+      .get(`${basePath}/time-events/status`)
+      .query({ staffId: 'staff11' })
+      .expect(200);
+    assert.equal(afterClockIn.body.data.clockedIn, true);
+    assert.equal(afterClockIn.body.data.lastEventType, 'clock_in');
+
+    await request(app)
+      .post(`${basePath}/time-events`)
+      .send({
+        staffId: 'staff11',
+        stationId,
+        eventType: 'clock_out',
+        methodType: 'fingerprint',
+        timestamp: '2026-04-20T17:00:00.000Z'
+      })
+      .expect(201);
+
+    const afterClockOut = await request(app)
+      .get(`${basePath}/time-events/status`)
+      .query({ staffId: 'staff11' })
+      .expect(200);
+    assert.equal(afterClockOut.body.data.clockedIn, false);
+    assert.equal(afterClockOut.body.data.lastEventType, 'clock_out');
+
+    await request(app)
+      .post(`${basePath}/time-events/manual`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        staffId: 'staff11',
+        stationId,
+        eventType: 'clock_in',
+        timestamp: '2026-04-21T08:00:00.000Z',
+        reason: 'Fingerprint not working',
+        methodType: 'card'
+      })
+      .expect(201);
+
+    const auditRows = await db.query<{ action: string; payload: Record<string, unknown> }>(
+      `SELECT action, payload
+       FROM audit_logs
+       WHERE action = 'time_event.manual'
+       ORDER BY id DESC
+       LIMIT 1`
+    );
+    assert.equal(auditRows.rows.length, 1);
+    const payload = auditRows.rows[0].payload;
+    assert.equal(payload.adminId, 'admin01');
+    assert.equal(payload.staffId, 'staff11');
+    assert.equal(payload.staffName, 'Ava Orchard');
+    assert.equal(payload.eventType, 'manual_clock_in');
+    assert.equal(payload.reason, 'Fingerprint not working');
+    assert.equal(payload.stationId, stationId);
+    assert.equal(payload.stationName, 'Station A');
+    assert.equal(payload.stationLocation, 'North Field');
+    assert.equal(payload.timestamp, '2026-04-21T08:00:00.000Z');
+  } finally {
+    await db.close?.();
+  }
+});
+
 test('staff can self-register and login; admin self-registration is blocked', async () => {
   const { app, db } = await setup();
   try {
