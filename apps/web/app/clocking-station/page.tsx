@@ -113,15 +113,32 @@ export default function ClockingStationPage() {
     }
   }
 
+  function showOfflineJsonUploadPolicy(): void {
+    window.alert(
+      [
+        'Offline JSON Attendance Upload (Planned):',
+        '- Policy: offline station JSON payloads must follow the documented reconciliation metadata contract.',
+        '- Policy: uploaded events will be assessed under pending/reconciled/duplicate/conflict/sync_failed states.',
+        '- This upload feature is not implemented in this sprint ticket.',
+        '- Current button is informational only and performs no upload logic.'
+      ].join('\n')
+    );
+  }
+
   return (
     <>
       <section className="section grid-2">
         <div>
           <h2 style={{ margin: 0, fontSize: '1.8rem' }}>Clocking Station</h2>
-          <p style={{ color: 'var(--on-surface-variant)' }}>Scanner prompt, high-contrast controls, and live terminal activity.</p>
+          <p style={{ color: 'var(--on-surface-variant)' }}>
+            Scanner prompt, high-contrast controls, and offline buffering awareness with delayed sync reconciliation notes.
+          </p>
           <div className="overlay" style={{ marginTop: '0.8rem' }}>
             Weather/Hydration Alert: 31C, high UV. Enforce extra water break every 90 minutes.
           </div>
+          <button className="secondary-button" style={{ marginTop: '0.8rem', minHeight: 48 }} onClick={showOfflineJsonUploadPolicy}>
+            Upload JSON Attendance
+          </button>
         </div>
         <div className="panel" style={{ display: 'grid', gap: '0.6rem' }}>
           <select value={staffId} onChange={(e) => setStaffId(e.target.value)}>

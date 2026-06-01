@@ -159,6 +159,22 @@ This section is authoritative for frontend delivery and is derived from `docs/DE
   - Lost card / re-registration simulated path.
   - Emergency admin clock-out.
   - Fortnight pay run with at least one overtime and one exception case.
+  - Offline delayed synchronization scenario: clock-in at offline Station A, clock-out at online Station B, and delayed arrival of clock-in after clock-out.
+
+### Sprint Review 2: Offline Sync Reconciliation (Documentation Scope)
+- Architecture specification document:
+  - [Offline Sync Reconciliation Architecture](./ARCHITECTURE_OFFLINE_SYNC.md)
+- Review focus:
+  - Out-of-order offline event handling model.
+  - Pending, reconciled, duplicate, conflict, and sync_failed lifecycle states.
+  - Conflict logging/review workflow and retry traceability model.
+- Acceptance expectations for this sprint review:
+  - The edge case flow is explicitly defined end-to-end.
+  - State transitions are unambiguous for operations and future implementation.
+  - Cross-station delayed-event scenario and expected outcomes are documented.
+- Scope boundary:
+  - This ticket is documentation and UI wording only.
+  - Backend API changes, database changes, and reconciliation implementation are out of scope.
 
 ### Assumptions and Defaults
 - Workspace is currently empty; implementation begins with full scaffold.
