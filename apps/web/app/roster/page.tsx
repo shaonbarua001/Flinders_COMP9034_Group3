@@ -108,7 +108,6 @@ export default function RosterPage() {
             </div>
             <div style={{ marginTop: '0.7rem', display: 'flex', gap: '0.6rem' }}>
               <button className="primary-button" onClick={quickAdd}>Quick Add Shift</button>
-              <button className="secondary-button">Apply Roster Optimization</button>
             </div>
           </>
         ) : (
