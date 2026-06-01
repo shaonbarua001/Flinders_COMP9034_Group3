@@ -223,6 +223,77 @@ test('role guard blocks staff from admin endpoints', async () => {
   }
 });
 
+test('staff list includes fingerprint identity_status and updates are isolated per employee', async () => {
+  const { app, db } = await setup();
+  try {
+    const adminToken = await loginAs(app, 'admin01', 'AdminPass123!');
+
+    await request(app)
+      .post(`${basePath}/staff`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        staffId: 'staff01',
+        name: 'Field Worker One',
+        contractType: 'full_time',
+        standardHours: 38,
+        role: 'staff',
+        standardRate: 30,
+        overtimeRate: 45,
+        password: 'WorkerPass123!'
+      })
+      .expect(201);
+
+    await request(app)
+      .post(`${basePath}/staff`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        staffId: 'staff02',
+        name: 'Field Worker Two',
+        contractType: 'part_time',
+        standardHours: 20,
+        role: 'staff',
+        standardRate: 28,
+        overtimeRate: 42,
+        password: 'WorkerPass123!'
+      })
+      .expect(201);
+
+    await request(app)
+      .put(`${basePath}/staff/staff01/identity-methods/fingerprint`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ status: 'registered', externalRef: 'fp-001' })
+      .expect(200);
+
+    const firstList = await request(app)
+      .get(`${basePath}/staff`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const firstRows = firstList.body.data as Array<{ staff_id: string; identity_status: string }>;
+    const staff01First = firstRows.find((row) => row.staff_id === 'staff01');
+    const staff02First = firstRows.find((row) => row.staff_id === 'staff02');
+    assert.equal(staff01First?.identity_status, 'registered');
+    assert.equal(staff02First?.identity_status, 'pending_biometric');
+
+    await request(app)
+      .put(`${basePath}/staff/staff02/identity-methods/fingerprint`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ status: 'register_card', externalRef: 'fp-002' })
+      .expect(200);
+
+    const secondList = await request(app)
+      .get(`${basePath}/staff`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const secondRows = secondList.body.data as Array<{ staff_id: string; identity_status: string }>;
+    const staff01Second = secondRows.find((row) => row.staff_id === 'staff01');
+    const staff02Second = secondRows.find((row) => row.staff_id === 'staff02');
+    assert.equal(staff01Second?.identity_status, 'registered');
+    assert.equal(staff02Second?.identity_status, 'register_card');
+  } finally {
+    await db.close?.();
+  }
+});
+
 test('clocking status, break guard, and manual clock audit fields are enforced', async () => {
   const { app, db } = await setup();
   try {

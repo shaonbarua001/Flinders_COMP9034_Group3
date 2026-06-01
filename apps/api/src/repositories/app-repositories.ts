@@ -198,8 +198,20 @@ export function createRepositories(db: Queryable): Repositories {
       },
       async list() {
         const result = await db.query(
-          `SELECT staff_id, name, contract_type, standard_hours, role, standard_rate, overtime_rate, active
-           FROM staff ORDER BY staff_id ASC`
+          `SELECT s.staff_id,
+                  s.name,
+                  s.contract_type,
+                  s.standard_hours,
+                  s.role,
+                  s.standard_rate,
+                  s.overtime_rate,
+                  s.active,
+                  COALESCE(sim.status, 'pending_biometric') AS identity_status
+           FROM staff s
+           LEFT JOIN staff_identity_methods sim
+             ON sim.staff_id = s.id
+            AND sim.method_type = 'fingerprint'
+           ORDER BY s.staff_id ASC`
         );
         return result.rows as Record<string, unknown>[];
       },

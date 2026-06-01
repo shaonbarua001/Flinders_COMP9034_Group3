@@ -13,6 +13,7 @@ interface StaffRow {
   standard_rate: string;
   overtime_rate: string;
   active: boolean;
+  identity_status: string;
 }
 
 const emptyForm = {
@@ -30,11 +31,17 @@ export default function StaffPage() {
   const { session } = useSession();
   const [rows, setRows] = useState<StaffRow[]>([]);
   const [form, setForm] = useState(emptyForm);
-  const [identityStatus, setIdentityStatus] = useState('registered');
+  const [identityStatusByStaffId, setIdentityStatusByStaffId] = useState<Record<string, string>>({});
 
   async function load() {
     const data = await apiGet<{ data: StaffRow[] }>('/staff', { role: 'admin' });
     setRows(data.data);
+    setIdentityStatusByStaffId(
+      data.data.reduce<Record<string, string>>((acc, row) => {
+        acc[row.staff_id] = row.identity_status ?? 'pending_biometric';
+        return acc;
+      }, {})
+    );
   }
 
   useEffect(() => {
@@ -67,12 +74,13 @@ export default function StaffPage() {
     await load();
   }
 
-  async function setIdentity(staffId: string, methodType: string) {
+  async function setIdentity(staffId: string, methodType: string, status: string) {
     await apiPut(
       `/staff/${staffId}/identity-methods/${methodType}`,
-      { status: identityStatus },
+      { status },
       { role: 'admin' }
     );
+    await load();
   }
 
   return (
@@ -126,13 +134,30 @@ export default function StaffPage() {
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '0.4rem' }}>
-                        <select value={identityStatus} onChange={(e) => setIdentityStatus(e.target.value)}>
+                        <select
+                          value={identityStatusByStaffId[row.staff_id] ?? 'pending_biometric'}
+                          onChange={(e) =>
+                            setIdentityStatusByStaffId((prev) => ({
+                              ...prev,
+                              [row.staff_id]: e.target.value
+                            }))
+                          }
+                        >
                           <option value="registered">Registered</option>
                           <option value="smartcard_active">Smartcard Active</option>
                           <option value="register_card">Register Card</option>
                           <option value="pending_biometric">Pending Biometric</option>
                         </select>
-                        <button className="secondary-button" onClick={() => setIdentity(row.staff_id, 'fingerprint')}>
+                        <button
+                          className="secondary-button"
+                          onClick={() =>
+                            setIdentity(
+                              row.staff_id,
+                              'fingerprint',
+                              identityStatusByStaffId[row.staff_id] ?? 'pending_biometric'
+                            )
+                          }
+                        >
                           Update
                         </button>
                       </div>
