@@ -69,13 +69,17 @@ export default function PayrollReportsPage() {
 
   async function detectExceptions() {
     await apiPost('/exceptions/detect', { from: startDate, to: endDate }, { role: 'admin' });
+    await loadOpenExceptions();
+  }
+
+  async function loadOpenExceptions() {
     const open = await apiGet<{ data: ExceptionRow[] }>('/exceptions?status=open', { role: 'admin' });
     setExceptions(open.data);
   }
 
   async function resolveException(id: number) {
     await apiPatch(`/exceptions/${id}/resolve`, { notes: 'Resolved from payroll screen' }, { role: 'admin' });
-    await detectExceptions();
+    await loadOpenExceptions();
   }
 
   async function generatePayslips() {
