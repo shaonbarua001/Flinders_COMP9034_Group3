@@ -25,6 +25,11 @@ INSERT INTO stations (id, name, location, method_type, active) VALUES
   (3, 'Cold Room Access', 'Cold Storage', 'face', TRUE),
   (4, 'Dispatch Ramp', 'Loading Dock', 'card', TRUE);
 
+INSERT INTO compliance_rules (id, rule_code, threshold_value, applies_to, effective_from, effective_to) VALUES
+  (1, 'MAX_WEEKLY_HOURS', 38, 'all', '2025-01-01', NULL),
+  (2, 'MAX_HOURS_WITHOUT_BREAK', 4, 'all', '2025-01-01', NULL),
+  (3, 'OVERTIME_PENALTY_MULTIPLIER', 1.5, 'all', '2025-01-01', NULL);
+
 INSERT INTO staff_identity_methods (staff_id, method_type, external_ref, status, enrolled_at) VALUES
   (2, 'fingerprint', 'fp-ava-2026', 'registered', NOW() - INTERVAL '45 days'),
   (2, 'card', 'card-ava-2026', 'active', NOW() - INTERVAL '45 days'),
@@ -125,6 +130,7 @@ SELECT setval('time_adjustments_id_seq', (SELECT MAX(id) FROM time_adjustments))
 SELECT setval('pay_periods_id_seq', (SELECT MAX(id) FROM pay_periods));
 SELECT setval('pay_runs_id_seq', (SELECT MAX(id) FROM pay_runs));
 SELECT setval('pay_run_items_id_seq', (SELECT MAX(id) FROM pay_run_items));
+SELECT setval('compliance_rules_id_seq', (SELECT MAX(id) FROM compliance_rules));
 SELECT setval('exceptions_id_seq', (SELECT MAX(id) FROM exceptions));
 SELECT setval('audit_logs_id_seq', (SELECT MAX(id) FROM audit_logs));
 

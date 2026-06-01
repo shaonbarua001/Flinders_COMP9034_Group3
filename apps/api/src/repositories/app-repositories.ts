@@ -8,6 +8,9 @@ function normalizeDate(value: unknown): string {
 }
 
 export interface Repositories {
+  compliance: {
+    getActiveThreshold(ruleCode: string, onDate: string): Promise<number | null>;
+  };
   audit: {
     log(actor: string, action: string, entity: string, entityId: string, payload: unknown): Promise<number>;
   };
@@ -120,6 +123,31 @@ export interface Repositories {
 
 export function createRepositories(db: Queryable): Repositories {
   return {
+    compliance: {
+      async getActiveThreshold(ruleCode, onDate) {
+        try {
+          const result = await db.query<{ threshold_value: string }>(
+            `SELECT threshold_value
+             FROM compliance_rules
+             WHERE rule_code = $1
+               AND effective_from <= $2::date
+               AND (effective_to IS NULL OR effective_to >= $2::date)
+             ORDER BY effective_from DESC, id DESC
+             LIMIT 1`,
+            [ruleCode, onDate]
+          );
+          if (result.rows.length === 0) {
+            return null;
+          }
+          return Number(result.rows[0].threshold_value);
+        } catch (error) {
+          if (typeof error === 'object' && error !== null && 'code' in error && (error as { code?: string }).code === '42P01') {
+            return null;
+          }
+          throw error;
+        }
+      }
+    },
     audit: {
       async log(actor, action, entity, entityId, payload) {
         const result = await db.query<{ id: number }>(

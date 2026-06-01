@@ -1,4 +1,5 @@
 import { detectExceptions } from '../lib/exceptions.js';
+import { COMPLIANCE_RULE_CODES, DEFAULT_COMPLIANCE_THRESHOLDS } from '../lib/compliance.js';
 import { dateBounds } from '../http/utils.js';
 import type { Repositories } from '../repositories/app-repositories.js';
 import { NotFoundError } from '../domain/errors.js';
@@ -18,6 +19,7 @@ export function createExceptionService(repositories: Repositories): ExceptionSer
 
       const rosterSet = new Set(rosterRows.map((row) => `${row.staff_id}:${row.roster_date}`));
       const grouped = new Map<string, { staffId: number; date: string; events: Array<{ eventType: string; timestamp: string }> }>();
+      const breakThresholdByDate = new Map<string, number>();
 
       for (const row of events) {
         const eventDate = new Date(row.event_timestamp).toISOString().slice(0, 10);
@@ -29,11 +31,20 @@ export function createExceptionService(repositories: Repositories): ExceptionSer
 
       const detectedRecords: Record<string, unknown>[] = [];
       for (const value of grouped.values()) {
+        let maxHoursWithoutBreak = breakThresholdByDate.get(value.date);
+        if (maxHoursWithoutBreak === undefined) {
+          maxHoursWithoutBreak =
+            (await repositories.compliance.getActiveThreshold(COMPLIANCE_RULE_CODES.maxHoursWithoutBreak, value.date)) ??
+            DEFAULT_COMPLIANCE_THRESHOLDS.maxHoursWithoutBreak;
+          breakThresholdByDate.set(value.date, maxHoursWithoutBreak);
+        }
+
         const detected = detectExceptions({
           staffId: value.staffId,
           date: value.date,
           events: value.events,
-          hasRoster: rosterSet.has(`${value.staffId}:${value.date}`)
+          hasRoster: rosterSet.has(`${value.staffId}:${value.date}`),
+          maxHoursWithoutBreak
         });
 
         for (const item of detected) {

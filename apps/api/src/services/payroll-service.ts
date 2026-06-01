@@ -1,6 +1,7 @@
 import type { Queryable } from '../db/types.js';
 import { asNumber } from '../http/utils.js';
 import { NotFoundError } from '../domain/errors.js';
+import { COMPLIANCE_RULE_CODES, DEFAULT_COMPLIANCE_THRESHOLDS } from '../lib/compliance.js';
 import { calculatePayroll } from '../lib/timecalc.js';
 import { createRepositories, type Repositories } from '../repositories/app-repositories.js';
 import { withTransaction } from '../repositories/tx.js';
@@ -21,9 +22,12 @@ async function generateRunWithRepos(
 
   for (const staff of staffRows) {
     const hours = workedByStaff.get(staff.id) ?? 0;
+    const maxWeeklyHours =
+      (await repositories.compliance.getActiveThreshold(COMPLIANCE_RULE_CODES.maxWeeklyHours, endDate)) ??
+      DEFAULT_COMPLIANCE_THRESHOLDS.maxWeeklyHours;
     const item = calculatePayroll(
       hours,
-      asNumber(staff.standard_hours),
+      maxWeeklyHours,
       asNumber(staff.standard_rate),
       asNumber(staff.overtime_rate),
       0

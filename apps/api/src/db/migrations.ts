@@ -144,6 +144,21 @@ const migrations = [
     payload JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  `,
+  `
+  CREATE TABLE IF NOT EXISTS compliance_rules (
+    id SERIAL PRIMARY KEY,
+    rule_code TEXT NOT NULL,
+    threshold_value NUMERIC(10,2) NOT NULL,
+    applies_to TEXT NOT NULL DEFAULT 'all',
+    effective_from DATE NOT NULL,
+    effective_to DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  `,
+  `
+  CREATE UNIQUE INDEX IF NOT EXISTS uq_compliance_rules_rule_scope_effective_from
+    ON compliance_rules(rule_code, applies_to, effective_from);
   `
 ];
 

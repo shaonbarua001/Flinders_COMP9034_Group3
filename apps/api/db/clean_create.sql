@@ -4,6 +4,7 @@ DROP TABLE IF EXISTS
   pay_run_items,
   pay_runs,
   pay_periods,
+  compliance_rules,
   exceptions,
   time_adjustments,
   time_events,
@@ -123,6 +124,19 @@ CREATE TABLE IF NOT EXISTS pay_run_items (
   total_pay NUMERIC(12,2) NOT NULL,
   details JSONB NOT NULL DEFAULT '{}'::jsonb
 );
+
+CREATE TABLE IF NOT EXISTS compliance_rules (
+  id SERIAL PRIMARY KEY,
+  rule_code TEXT NOT NULL,
+  threshold_value NUMERIC(10,2) NOT NULL,
+  applies_to TEXT NOT NULL DEFAULT 'all',
+  effective_from DATE NOT NULL,
+  effective_to DATE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_compliance_rules_rule_scope_effective_from
+  ON compliance_rules(rule_code, applies_to, effective_from);
 
 CREATE TABLE IF NOT EXISTS exceptions (
   id SERIAL PRIMARY KEY,

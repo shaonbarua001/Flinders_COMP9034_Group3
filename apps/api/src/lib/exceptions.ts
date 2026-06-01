@@ -7,6 +7,7 @@ export interface DetectInput {
   date: string;
   events: TimeEvent[];
   hasRoster: boolean;
+  maxHoursWithoutBreak?: number;
 }
 
 export interface DetectedException {
@@ -25,7 +26,8 @@ export function detectExceptions(input: DetectInput): DetectedException[] {
   if (types.includes('clock_in') && types.includes('clock_out')) {
     const worked = computeWorkedHours(input.events);
     const hasBreak = types.includes('break_start') && types.includes('break_end');
-    if (worked > 4 && !hasBreak) {
+    const maxHoursWithoutBreak = input.maxHoursWithoutBreak ?? 4;
+    if (worked > maxHoursWithoutBreak && !hasBreak) {
       output.push({ type: 'no_break_over_4_hours', severity: 'medium' });
     }
   }

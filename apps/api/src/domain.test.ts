@@ -30,6 +30,7 @@ test('migrations are idempotent and core tables exist', async () => {
       'pay_periods',
       'pay_runs',
       'pay_run_items',
+      'compliance_rules',
       'exceptions',
       'audit_logs'
     ];
