@@ -54,7 +54,41 @@ Each ingested attendance event and attendance pair is tracked by reconciliation 
 - Manual decisions (merge, keep, reject, amend) are recorded in audit history.
 - Resolution actions must preserve original event payload context for compliance and payroll traceability.
 
-## 6. Synchronization Traceability Fields (Spec-Level)
+## 6. Manual Override & Amendment Governance (Sprint Review 2)
+This section defines how emergency manual clock adjustments are controlled, approved, recorded, and linked to payroll recalculation.
+It documents governance expectations only and does not introduce new schema, API, or runtime behavior in this ticket.
+
+### 6.1 Control Requirements (Field-Level Traceability)
+| Requirement | Existing field(s) / artifact | Governance rule |
+|---|---|---|
+| Reason required for every manual adjustment | `Amendment.reason` | Amendment cannot enter approval queue without a non-empty reason. |
+| Original value and new value recorded | `Amendment.old_value`, `Amendment.new_value`, `Amendment.field_changed` | Changed field and before/after values are mandatory for traceability. |
+| Admin ID recorded for change performer | `Amendment.admin_staff_id` | The initiating admin must be recorded on create. |
+| Timestamp recorded for adjustment | `Amendment.amended_at`, `reviewedAt` | `amended_at` records change creation time; review timestamps are recorded at approval/review checkpoints. |
+| Second approval required for sensitive changes | `Amendment.requires_second_approval`, `Amendment.approved_by_staff_id`, `AuditLog` entries | If sensitive, the approval path must include an additional approval checkpoint by a different authorized admin; final approver is stored in `approved_by_staff_id` and approval evidence is preserved in audit history. |
+| Payroll recalculation triggered after approval | `Amendment.triggered_pay_recalc` | When approved and this flag is true, payroll recalculation is queued before payroll finalization. |
+| Audit log protected from unauthorized modification | `AuditLog` + role-based access control | Audit history is append-only for operational users; update/delete is restricted to explicitly authorized system-level controls only. |
+
+### 6.2 Operational Approval Workflow (Specification)
+`Create Amendment -> Pending -> (Second Approval if required) -> Approved -> Apply change -> Audit append -> Payroll recalc queue`
+
+1. Admin/Supervisor creates amendment with required `reason`, `field_changed`, `old_value`, `new_value`, and `admin_staff_id`.
+2. Amendment enters pending review queue.
+3. If `requires_second_approval = true`, the workflow requires an additional approval checkpoint by a different authorized admin before final approval.
+4. Final approver identity is stored in `approved_by_staff_id`, and approval timestamps/checkpoints are recorded in audit history.
+5. Approved amendment is applied to the target clock record while preserving the original value trail in amendment/audit artifacts.
+6. `AuditLog` receives append-only records for create, approval, and apply actions.
+7. If `triggered_pay_recalc = true`, the amendment is linked to payroll recalculation processing before payroll close/finalization.
+
+### 6.3 Review and Auditability Scenarios (Documentation Acceptance)
+Reviewers must be able to answer the following directly from this document:
+
+1. Who can initiate changes, who can approve, and when second approval is mandatory.
+2. Where before/after values are stored for each amendment.
+3. How approved amendments trigger payroll recalculation.
+4. Why audit records cannot be modified by unauthorized users.
+
+## 7. Synchronization Traceability Fields (Spec-Level)
 The architecture requires sync lifecycle metadata for each event:
 
 - `source`: `online` or `offline_buffer`
@@ -67,7 +101,7 @@ The architecture requires sync lifecycle metadata for each event:
 - `reconciledAt`: timestamp when state reached `reconciled`
 - `reviewedBy` and `reviewedAt`: operator conflict-resolution markers
 
-## 7. vNext Offline Upload Contract (Documentation Only)
+## 8. vNext Offline Upload Contract (Documentation Only)
 Proposed payload shape for delayed station uploads:
 
 ```json
@@ -92,13 +126,13 @@ Proposed payload shape for delayed station uploads:
 
 This contract is for architecture alignment and implementation planning only.
 
-## 8. Out of Scope for This Sprint Ticket
+## 9. Out of Scope for This Sprint Ticket
 - No API/controller changes.
 - No database migrations or new runtime tables.
 - No reconciliation worker/job implementation.
 - No changes to payroll calculation behavior.
 
-## 9. Sprint Review 2 Demonstration Criteria
+## 10. Sprint Review 2 Demonstration Criteria
 - The edge case and state transitions are fully documented.
 - Reconciliation, duplicate, conflict, and retry behavior are unambiguous.
 - Documentation explicitly states implementation is deferred and planned.
