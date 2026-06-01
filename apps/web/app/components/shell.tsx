@@ -37,7 +37,6 @@ export function Shell({ children }: { children: ReactNode }) {
   }
 
   const links = navItems.filter((item) => !(item.adminOnly && session.role !== 'admin'));
-
   return (
     <div className="app-shell">
       <aside className="side-nav">
@@ -76,7 +75,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
       <main className="main-shell">
         <header className="top-shell">
-          <input className="search" placeholder="Search shifts, staff, reports" />
+          <div style={{ flex: 1 }} />
           <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'center' }}>
             <button className="secondary-button">Help</button>
             <button className="secondary-button">Alerts</button>
