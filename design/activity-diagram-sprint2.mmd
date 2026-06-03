@@ -1,0 +1,28 @@
+flowchart TD
+    A([Start: clock event]) --> B["Worker scans at Station (staff_identity_methods)"]
+    B --> C{"Identity valid?"}
+    C -- No --> X1["exceptions: unknown / unrostered"]:::exc
+    X1 --> Z1([End: denied])
+    C -- Yes --> D{"Station online?"}
+    D -- "No - offline" --> E["Buffer event locally, replay later (source metadata)"]:::dev
+    E --> F["Ingest on reconnect - common ingestion path"]:::srv
+    F --> G["Insert time_events row (event_type, event_timestamp)"]:::srv
+    D -- Yes --> G
+    G --> R{"Reconcile by staff + chronological time"}
+    R -- "matching pair" --> RECD["state = reconciled"]:::srv
+    R -- "no counterpart yet" --> PEND["state = pending"]:::dev
+    R -- "same event again" --> DUP["state = duplicate - no new outcome"]:::dev
+    R -- "unresolvable" --> CONF["state = conflict -> ops manual review"]:::exc
+    PEND --> RECD
+    CONF --> AUD["audit_logs (actor, action, payload JSONB)"]:::srv
+    RECD --> J{"Compliance check (compliance_rules)"}
+    J -- Breach --> X2["exceptions (severity, status = open)"]:::exc
+    J -- OK --> K["Attendance finalized for payroll (pay_run_items)"]:::srv
+    X2 --> K
+    K --> Z2([End: stored])
+    M([Emergency: manual override]) --> N["time_adjustments (before/after JSONB, reason, adjusted_by)"]:::srv
+    N --> AUD
+    AUD --> J
+    classDef srv fill:#2e7d32,stroke:#1b5e20,color:#ffffff
+    classDef dev fill:#cfe8d4,stroke:#2e7d32,color:#000000
+    classDef exc fill:#c62828,stroke:#8e0000,color:#ffffff
